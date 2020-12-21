@@ -7,7 +7,7 @@ import math
 
 # Defining variables + image/sound paths
 WIDTH = 1400
-HEIGHT = 700
+HEIGHT = 820
 FPS = 40
 img_dir = path.join(path.dirname(__file__), '1img_zb')
 snd_dir = path.join(path.dirname(__file__), '1snd_zb')
@@ -20,6 +20,7 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 SKY = (150, 255, 255)
+
 
 # Initialize pygame and create window
 pygame.init()
@@ -35,6 +36,13 @@ def draw_block(surface, x, y, img):
     img_rect.centerx = x
     img_rect.centery = y
     surface.blit(img, img_rect)
+
+
+# Creating new mobs
+def newmob():
+    m = Mob()
+    all_sprites.add(m)
+    mobs.add(m)
 
 
 class Cloud(pygame.sprite.Sprite):
@@ -90,7 +98,7 @@ class Player(pygame.sprite.Sprite):
         self.image_frame = 0
         self.rect = self.image.get_rect()
         self.rect.x = 1000
-        self.rect.y = 300
+        self.rect.y = 250
         self.speedx = 0
 
         self.jump_timer = 200
@@ -111,11 +119,19 @@ class Player(pygame.sprite.Sprite):
             self.image_frame += 1
             if self.image_frame == 11:
                 self.image_frame = 0
-            self.image = pygame.transform.flip(PLAYER_IMAGES[self.image_frame], True, False)
+            self.image = PLAYER_IMAGES[self.image_frame]
         self.rect.x += self.speedx
         self.image.set_colorkey(WHITE)
         self.image.set_colorkey(BLACK)
         
+        if self.rect.x >= 1275:
+            self.rect.x = 1275
+            self.image = PLAYER_IMAGES[0]
+
+        if self.rect.x <= 985:
+            self.rect.x = 985
+            self.image = pygame.transform.flip(PLAYER_IMAGES[0], True, False)
+
         if keystate[pygame.K_SPACE]:
             self.jump()
 
@@ -213,14 +229,22 @@ class Gun(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         self.image = pistol
         self.rect = self.image.get_rect()
-        self.rect.x = player.rect.x
-        self.rect.y = player.rect.y
+        self.rect.x = player.rect.x - 30
+        self.rect.y = player.rect.y + 25
         self.mouse_pos = pygame.mouse.get_pos()
     
     def update(self):
-        self.mouse_pos = pygame.mouse.get_pos()
-        self.rect.x = player.rect.x - 25
-        self.rect.y = player.rect.y + 32
+        self.rect.y = player.rect.y + 25
+        keystate = pygame.key.get_pressed()
+        if keystate[pygame.K_RIGHT]:
+            self.rect.x = player.rect.x + 30
+            self.image = pygame.transform.flip(pistol, True, False)
+        elif keystate[pygame.K_LEFT]:
+            self.image = pistol
+            self.rect.x = player.rect.x - 30
+            self.rect.y = player.rect.y + 25
+
+        # rotation
         if pygame.mouse.get_pressed()[0]:
             print(self.mouse_pos)
             if self.mouse_pos[0] <= player.rect.x:
@@ -236,7 +260,13 @@ class Gun(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = old_center
 
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
 
+class Mob_other(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
 
 
 # ------------------------------------------------------------------------------------------------------ #
@@ -285,6 +315,7 @@ for i in range(0, 11):
     player = pygame.image.load(path.join(img_dir, filename)).convert()
     player = pygame.transform.scale(player, (50,70))
     player.set_colorkey(WHITE)
+    player.set_colorkey(BLACK)
     PLAYER_IMAGES.append(player)
 
 FOLIAGE = []
@@ -321,7 +352,7 @@ for i in range(12):
 
 # pistol (first gun) and it's bullet
 pistol = pygame.image.load(path.join(img_dir, 'weapon00.png')).convert()
-pistol = pygame.transform.scale(pistol, (40,30))
+pistol = pygame.transform.scale(pistol, (50,38))
 pistol.set_colorkey(WHITE)
 
 # Decoration images
@@ -349,6 +380,11 @@ chimney = pygame.image.load(path.join(img_dir, 'chimney.png')).convert()
 bridge = pygame.image.load(path.join(img_dir, 'bridge.png')).convert()
 bridge.set_colorkey(WHITE)
 ropeA = pygame.image.load(path.join(img_dir, 'ropeAttached.png')).convert()
+ropeA = pygame.transform.rotate(ropeA, 250)
+laddertop = pygame.image.load(path.join(img_dir, 'ladder_top.png')).convert()
+laddertop.set_colorkey(WHITE)
+laddermid = pygame.image.load(path.join(img_dir, 'ladder_mid.png')).convert()
+laddermid.set_colorkey(WHITE)
 
 windowmid = pygame.image.load(path.join(img_dir, 'windowmid.png')).convert()
 windowmid.set_colorkey(WHITE)
@@ -368,6 +404,9 @@ pygame.mixer.music.play(loops=-1) #loops everytime it reaches the end
 # ------------------------------------------------------------------------------------------------------ #
 # Creating sprites
 all_sprites = pygame.sprite.Group()
+mobs = pygame.sprite.Group()
+bullets = pygame.sprite.Group()
+
 
 t1 = Torch(compteur=0)
 t2 = Torch(compteur=1)
@@ -403,7 +442,7 @@ all_sprites.add(g)
 
 def house():
     # sides
-    for i in range(7):
+    for i in range(9):
         draw_block(screen, 1100, HEIGHT/2 + 50 - i * 30, HOUSE_BLOCKS[6])
         draw_block(screen, 1300, HEIGHT/2 + 50 - i * 30, HOUSE_BLOCKS[7])
     # lower left side
@@ -415,9 +454,11 @@ def house():
     for i in range(3):
         draw_block(screen, 1150 + i * 40, HEIGHT / 2 - 100, HOUSE_BLOCKS[0])
         draw_block(screen, 1150 + i * 40, HEIGHT / 2 - 130, HOUSE_BLOCKS[0])
+        draw_block(screen, 1150 + i * 40, HEIGHT / 2 - 150, HOUSE_BLOCKS[0])
+        draw_block(screen, 1150 + i * 40, HEIGHT / 2 - 170, HOUSE_BLOCKS[0])
     # sides
     for i in range(2):
-        for x in range(5):
+        for x in range(6):
             draw_block(screen, 1200, HEIGHT / 2 + 82 - x * 38, HOUSE_BLOCKS[0])
             draw_block(screen, 1150 + i * 100, HEIGHT / 2 + 82 - x * 38, HOUSE_BLOCKS[0])
     draw_block(screen, 1150, HEIGHT / 2 + 82, HOUSE_BLOCKS[4])
@@ -435,13 +476,17 @@ def house():
         for i in range(2):
             draw_block(screen, 1075 + x * 50, 180 - i * 50, ROOF[1])
     # windows
-    draw_block(screen, 1133, HEIGHT / 2 - 200, pygame.transform.scale(windows[2], (40, 40)))
-    draw_block(screen, 1268, HEIGHT / 2 - 200, pygame.transform.scale(windows[2], (40, 40)))
+    draw_block(screen, 1133, HEIGHT / 2 - 150, pygame.transform.scale(windows[2], (40, 40)))
+    draw_block(screen, 1268, HEIGHT / 2 - 150, pygame.transform.scale(windows[2], (40, 40)))
     # platform
-    draw_block(screen, 1050, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
+    draw_block(screen, 1055, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
     draw_block(screen, 1020, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
-
-
+    draw_block(screen, 1077, HEIGHT / 2 - 75, pygame.transform.scale(ropeA, (100, 100)))
+    for i in range(8):
+        draw_block(screen, 1085 + i * 30, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
+    # ladder
+    for i in range(4):
+        draw_block(screen, 1048, HEIGHT / 2 - 165 + i * 20, pygame.transform.scale(laddermid, (25, 25)))
 def deco():
     TO_DRAW_DECO = [
         screen, 0, 15, pygame.transform.scale(sun, (200, 200)),
@@ -480,24 +525,17 @@ def deco():
     for times in range(2):
         draw_block(screen, longueur, hauteur, pygame.transform.scale(GRASS_IMAGES[8], (50, 50)))
         hauteur -= 130
-    for times in range(1, 5):
+    for times in range(1, 7):
         a = 22.5
-        b = HEIGHT - (times * 45)
+        b = HEIGHT + 35 - (times * 45)
         for dirt in range(30):
-            if (dirt == 0 and times == 1) or (times == 4 and dirt == 0):
-                continue
             draw_block(screen, a, b, GRASS_IMAGES[7])
             a += 45
-    draw_block(screen, WIDTH - 45, HEIGHT/2 + 130, GRASS_IMAGES[1])
     a = 22.5
     for times in range(30):
         draw_block(screen, a, HEIGHT/2 + 130, GRASS_IMAGES[6])
         a += 45
     c = 22.5
-    for times in range(4):
-        draw_block(screen, c, HEIGHT/2 + 170, GRASS_IMAGES[6])
-        c += 45
-    draw_block(screen, 200, HEIGHT/2 + 170, GRASS_IMAGES[11])
 
 # ------------------------------------------------------------------------------------------------------ #
 
