@@ -101,8 +101,9 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = 250
         self.speedx = 0
 
-        self.jump_timer = 200
-        self.jump1 = pygame.time.get_ticks()
+        self.frame_climb = 12
+        self.climb_timer = 150
+        self.climb1 = pygame.time.get_ticks()
 
     def update(self):
         self.speedx = 0
@@ -132,11 +133,25 @@ class Player(pygame.sprite.Sprite):
             self.rect.x = 985
             self.image = pygame.transform.flip(PLAYER_IMAGES[0], True, False)
 
-        if keystate[pygame.K_SPACE]:
-            self.jump()
+        if keystate[pygame.K_SPACE] and (1008 <= self.rect.x <= 1035) :
+            self.climb()
 
-    def jump(self):
-        self.rect.y -= 3
+        if 0 < self.rect.y <= 248 and (not(1008 <= self.rect.x <= 1035) or not keystate[pygame.K_SPACE]):
+            self.rect.y += 3.5
+            if 248 <= self.rect.y <= 250:
+                self.rect.y = 250
+                fall.play()
+
+    def climb(self):
+        g.hide()
+        now = pygame.time.get_ticks()
+        if now - self.climb1 >= self.climb_timer:
+            self.climb1 = now
+            self.frame_climb += 1
+            if self.frame_climb == 14:
+                self.frame_climb = 12
+        self.rect.y -= 1
+        self.image = PLAYER_IMAGES[self.frame_climb]
 
 class Mob(pygame.sprite.Sprite):
     def __init__(self):
@@ -259,6 +274,9 @@ class Gun(pygame.sprite.Sprite):
         self.image = new_image
         self.rect = self.image.get_rect()
         self.rect.center = old_center
+    
+    def hide(self):
+        self.image = empty
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self):
@@ -310,7 +328,7 @@ for i in range(1, 11):
     ENEMY_IMAGES.append(enemy)
 
 PLAYER_IMAGES = []
-for i in range(0, 11):
+for i in range(0, 14):
     filename = 'p3_walk0{}.png'.format(i)
     player = pygame.image.load(path.join(img_dir, filename)).convert()
     player = pygame.transform.scale(player, (50,70))
@@ -385,6 +403,8 @@ laddertop = pygame.image.load(path.join(img_dir, 'ladder_top.png')).convert()
 laddertop.set_colorkey(WHITE)
 laddermid = pygame.image.load(path.join(img_dir, 'ladder_mid.png')).convert()
 laddermid.set_colorkey(WHITE)
+empty = pygame.image.load(path.join(img_dir, 'empty.png')).convert()
+empty.set_colorkey(WHITE)
 
 windowmid = pygame.image.load(path.join(img_dir, 'windowmid.png')).convert()
 windowmid.set_colorkey(WHITE)
@@ -394,8 +414,7 @@ window_orig = pygame.image.load(path.join(img_dir, 'windowCheckered.png')).conve
 window_orig.set_colorkey(WHITE)
 windows = [windowmid, windowtop, window_orig]
 
-
-
+fall = pygame.mixer.Sound(path.join(snd_dir, 'fall.wav'))
 pygame.mixer.music.load(path.join(snd_dir, 'Battle Theme 1.mp3'))
 pygame.mixer.music.set_volume(0.2)
 pygame.mixer.music.play(loops=-1) #loops everytime it reaches the end
@@ -553,7 +572,7 @@ while running:
             running = False 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_c:
-                pass
+                print(pygame.mouse.get_pos())
 
     screen.fill(SKY)
     house()
