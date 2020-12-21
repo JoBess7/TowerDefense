@@ -3,6 +3,7 @@ import random
 from os import path, environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
+import math
 
 # Defining variables + image/sound paths
 WIDTH = 1400
@@ -214,14 +215,26 @@ class Gun(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = player.rect.x
         self.rect.y = player.rect.y
+        self.mouse_pos = pygame.mouse.get_pos()
     
     def update(self):
+        self.mouse_pos = pygame.mouse.get_pos()
         self.rect.x = player.rect.x - 25
         self.rect.y = player.rect.y + 32
-        self.image = pistol
+        if pygame.mouse.get_pressed()[0]:
+            print(self.mouse_pos)
+            if self.mouse_pos[0] <= player.rect.x:
+                self.rotate()
 
-        
-        
+    def rotate(self):
+        self.x_mouse = self.rect.x - self.mouse_pos[0]
+        self.y_mouse = self.rect.y - self.mouse_pos[1]
+        self.angle_rot = 90 - math.sin(self.x_mouse/(math.sqrt(self.x_mouse**2 + self.y_mouse**2)))
+        new_image = pygame.transform.rotate(self.image, self.angle_rot)
+        old_center = self.rect.center
+        self.image = new_image
+        self.rect = self.image.get_rect()
+        self.rect.center = old_center
 
 
 
@@ -333,7 +346,9 @@ sign2  = pygame.image.load(path.join(img_dir, 'signCoin.png')).convert()
 clock_ = pygame.image.load(path.join(img_dir, 'clock.png')).convert()
 redflag = pygame.image.load(path.join(img_dir, 'redFlag.png')).convert()
 chimney = pygame.image.load(path.join(img_dir, 'chimney.png')).convert()
-
+bridge = pygame.image.load(path.join(img_dir, 'bridge.png')).convert()
+bridge.set_colorkey(WHITE)
+ropeA = pygame.image.load(path.join(img_dir, 'ropeAttached.png')).convert()
 
 windowmid = pygame.image.load(path.join(img_dir, 'windowmid.png')).convert()
 windowmid.set_colorkey(WHITE)
@@ -422,6 +437,10 @@ def house():
     # windows
     draw_block(screen, 1133, HEIGHT / 2 - 200, pygame.transform.scale(windows[2], (40, 40)))
     draw_block(screen, 1268, HEIGHT / 2 - 200, pygame.transform.scale(windows[2], (40, 40)))
+    # platform
+    draw_block(screen, 1050, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
+    draw_block(screen, 1020, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
+
 
 def deco():
     TO_DRAW_DECO = [
@@ -490,14 +509,13 @@ while running:
     # Keep loop runnning at the right speed
     clock.tick(FPS)
     # Process input (Events)
-    a = pygame.mouse.get_pos()
     for event in pygame.event.get(): 
         # Check for closing the window
         if event.type == pygame.QUIT:
             running = False 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_c:
-                print(a)
+                pass
 
     screen.fill(SKY)
     house()
