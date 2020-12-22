@@ -97,25 +97,30 @@ class Player(pygame.sprite.Sprite):
         self.image.set_colorkey(BLACK)
         self.image_frame = 0
         self.rect = self.image.get_rect()
-        self.rect.x = 1000
-        self.rect.y = 250
+        self.rect.x = 1200
+        self.rect.y = HEIGHT/2 + 42
         self.speedx = 0
 
         self.frame_climb = 12
         self.climb_timer = 150
+        self.speedfall1 = 1
+        self.speedfall2 = 1.5
+        self.speedfall3 = 2
+
         self.climb1 = pygame.time.get_ticks()
+        self.climb_timer_choose = 0
 
     def update(self):
         self.speedx = 0
         keystate = pygame.key.get_pressed() 
-        if keystate[pygame.K_LEFT]:
+        if keystate[pygame.K_LEFT] or keystate[pygame.K_a]:
             self.speedx = -5
             self.image_frame += 1
             if self.image_frame == 11:
                 self.image_frame = 0
             self.image = pygame.transform.flip(PLAYER_IMAGES[self.image_frame], True, False)
 
-        if keystate[pygame.K_RIGHT]:
+        if keystate[pygame.K_RIGHT] or keystate[pygame.K_d]:
             self.speedx = 5
             self.image_frame += 1
             if self.image_frame == 11:
@@ -125,22 +130,23 @@ class Player(pygame.sprite.Sprite):
         self.image.set_colorkey(WHITE)
         self.image.set_colorkey(BLACK)
         
-        if self.rect.x >= 1275:
-            self.rect.x = 1275
+        if self.rect.x >= 1075 and 245 <= self.rect.y <= 255:
+            self.rect.x = 1075
             self.image = PLAYER_IMAGES[0]
 
-        if self.rect.x <= 985:
-            self.rect.x = 985
+        if self.rect.x <= 920 and 245 <= self.rect.y <= 255:
+            self.rect.x = 920
             self.image = pygame.transform.flip(PLAYER_IMAGES[0], True, False)
 
-        if keystate[pygame.K_SPACE] and (1008 <= self.rect.x <= 1035) :
+        # climbing up
+        if (keystate[pygame.K_UP] or keystate[pygame.K_w]) and (950 <= self.rect.x <= 990) and self.rect.y > 150 :
             self.climb()
+        if not (950 <= self.rect.x <= 990) and ((0 < self.rect.y <= 247) or (252 <= self.rect.y <= HEIGHT/2 + 40)):
+            self.fall()
 
-        if 0 < self.rect.y <= 248 and (not(1008 <= self.rect.x <= 1035) or not keystate[pygame.K_SPACE]):
-            self.rect.y += 3.5
-            if 248 <= self.rect.y <= 250:
-                self.rect.y = 250
-                fall.play()
+        # climbing down
+        if (950 <= self.rect.x <= 990) and (keystate[pygame.K_DOWN] or keystate[pygame.K_s]):
+            self.climbdown()
 
     def climb(self):
         g.hide()
@@ -150,8 +156,34 @@ class Player(pygame.sprite.Sprite):
             self.frame_climb += 1
             if self.frame_climb == 14:
                 self.frame_climb = 12
-        self.rect.y -= 1
+        self.rect.y -= 2
         self.image = PLAYER_IMAGES[self.frame_climb]
+
+    def climbdown(self):
+        g.hide()
+        now = pygame.time.get_ticks()
+        if now - self.climb1 >= self.climb_timer:
+            self.climb1 = now
+            self.frame_climb += 1
+            if self.frame_climb == 14:
+                self.frame_climb = 12
+        self.rect.y += 2
+        if self.rect.y >= HEIGHT/2 + 40:
+            self.rect.y = HEIGHT/2 + 40
+        self.image = PLAYER_IMAGES[self.frame_climb]
+
+    def fall(self):
+        g.hide()
+        self.rect.y += 3
+        self.image = PLAYER_IMAGES[14]
+        if 245 <= self.rect.y <= 250:
+            self.rect.y = 250
+            fall.play()
+            self.image = PLAYER_IMAGES[15]
+        if HEIGHT/2 + 38 <= self.rect.y <= HEIGHT/2 + 44:
+            self.rect.y = HEIGHT/2 + 42
+            fall.play()
+            self.image = PLAYER_IMAGES[15]
 
 class Mob(pygame.sprite.Sprite):
     def __init__(self):
@@ -251,10 +283,10 @@ class Gun(pygame.sprite.Sprite):
     def update(self):
         self.rect.y = player.rect.y + 25
         keystate = pygame.key.get_pressed()
-        if keystate[pygame.K_RIGHT]:
+        if keystate[pygame.K_RIGHT] or keystate[pygame.K_d]:
             self.rect.x = player.rect.x + 30
             self.image = pygame.transform.flip(pistol, True, False)
-        elif keystate[pygame.K_LEFT]:
+        elif keystate[pygame.K_LEFT] or keystate[pygame.K_a]:
             self.image = pistol
             self.rect.x = player.rect.x - 30
             self.rect.y = player.rect.y + 25
@@ -282,9 +314,43 @@ class Bullet(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
 
-class Mob_other(pygame.sprite.Sprite):
+class Bee(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
+        self.revers = False
+        self.image = BEE[0]
+        self.rect = self.image.get_rect()
+        self.x_1 = random.randrange(-60, -20)
+        self.x_2 = random.randrange(WIDTH + 20, WIDTH + 60)
+        self.rect.x = random.choice([self.x_1, self.x_2])
+        self.rect.y = random.randrange(50, 280)
+        if -100 < self.rect.x < 0:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.revers = True
+        self.speedx = random.randrange(1,3)
+        self.frame = 0
+
+        self.timer = 100
+        self.time_now = pygame.time.get_ticks()
+
+    def update(self):
+        self.rect.y = random.choice([self.rect.y + 1, self.rect.y - 1])
+        if self.revers:
+            self.rect.x += self.speedx
+        if not self.revers:
+            self.rect.x -= self.speedx
+        now = pygame.time.get_ticks()
+        if now - self.time_now >= self.timer:
+            self.time_now = now
+            self.frame += 1
+            if self.frame == 2:
+                self.frame = 0
+            if self.revers:
+                self.image = pygame.transform.flip(BEE[self.frame], True, False)
+            else:
+                self.image = BEE[self.frame]
+        if self.rect.x < -55 or self.rect.x > WIDTH + 65:
+            self.kill()
 
 
 # ------------------------------------------------------------------------------------------------------ #
@@ -328,7 +394,7 @@ for i in range(1, 11):
     ENEMY_IMAGES.append(enemy)
 
 PLAYER_IMAGES = []
-for i in range(0, 14):
+for i in range(0, 16):
     filename = 'p3_walk0{}.png'.format(i)
     player = pygame.image.load(path.join(img_dir, filename)).convert()
     player = pygame.transform.scale(player, (50,70))
@@ -368,12 +434,18 @@ for i in range(12):
     smoke = pygame.transform.scale(smoke, (20,20))
     SMOKE.append(smoke)
 
-# pistol (first gun) and it's bullet
+beefly1 = pygame.image.load(path.join(img_dir, 'bee0.png')).convert()
+beefly2 = pygame.image.load(path.join(img_dir, 'bee1.png')).convert()
+beefly1 = pygame.transform.scale(beefly1, (25, 20))
+beefly2 = pygame.transform.scale(beefly2, (25, 20))
+beefly1.set_colorkey(BLACK)
+beefly2.set_colorkey(BLACK)
+BEE = [beefly1, beefly2]
+
 pistol = pygame.image.load(path.join(img_dir, 'weapon00.png')).convert()
 pistol = pygame.transform.scale(pistol, (50,38))
 pistol.set_colorkey(WHITE)
 
-# Decoration images
 doormid = pygame.image.load(path.join(img_dir, 'door_closed.png')).convert()
 doormid.set_colorkey(WHITE)
 doortop = pygame.image.load(path.join(img_dir, 'door_closedTop.png')).convert()
@@ -432,6 +504,7 @@ t2 = Torch(compteur=1)
 all_sprites.add(t1)
 all_sprites.add(t2)
 
+
 for i in range(3):
     s = Smoke()
     all_sprites.add(s)
@@ -442,8 +515,9 @@ all_sprites.add(c1)
 all_sprites.add(c2)
 
 for i in range(5):
-    m = Mob()
-    all_sprites.add(m)
+    pass
+    # m = Mob()
+    # all_sprites.add(m)
 
 for i in range(10):
     c = Cloud()
@@ -501,12 +575,14 @@ def house():
     draw_block(screen, 1055, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
     draw_block(screen, 1020, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
     draw_block(screen, 1077, HEIGHT / 2 - 75, pygame.transform.scale(ropeA, (100, 100)))
-    for i in range(8):
-        draw_block(screen, 1085 + i * 30, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
+    for i in range(6):
+        draw_block(screen, 950 + i * 30, HEIGHT / 2 - 90, pygame.transform.scale(bridge, (40, 9)))
     # ladder
-    for i in range(4):
-        draw_block(screen, 1048, HEIGHT / 2 - 165 + i * 20, pygame.transform.scale(laddermid, (25, 25)))
+    for i in range(16):
+        draw_block(screen, 1000, HEIGHT / 2 - 200 + i * 20, pygame.transform.scale(laddermid, (25, 25)))
 def deco():
+
+
     TO_DRAW_DECO = [
         screen, 0, 15, pygame.transform.scale(sun, (200, 200)),
         screen, 1200, HEIGHT/2 + 90, pygame.transform.scale(doors[0], (50, 40)),
@@ -559,6 +635,7 @@ def deco():
 # ------------------------------------------------------------------------------------------------------ #
 
 # Game loop
+time_out = pygame.time.get_ticks()
 check_mouse = False
 running = True
 game_over = True
@@ -573,6 +650,14 @@ while running:
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_c:
                 print(pygame.mouse.get_pos())
+    time_in = pygame.time.get_ticks()
+    spawn_time = 2000
+    chiffre = random.randrange(0,150)
+    if time_in - time_out >= spawn_time:
+        if chiffre == 2:
+            b = Bee()
+            all_sprites.add(b)
+            time_out = time_in
 
     screen.fill(SKY)
     house()
