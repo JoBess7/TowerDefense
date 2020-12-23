@@ -8,7 +8,7 @@ import math
 # Defining variables + image/sound paths
 WIDTH = 1400
 HEIGHT = 820
-FPS = 40
+FPS = 30
 img_dir = path.join(path.dirname(__file__), '1img_zb')
 snd_dir = path.join(path.dirname(__file__), '1snd_zb')
 
@@ -36,13 +36,27 @@ def draw_block(surface, x, y, img):
     img_rect.centerx = x
     img_rect.centery = y
     surface.blit(img, img_rect)
+# Draw score
+def draw_score(score_):
+    a = 400
+    b = 40
+    for chiffre in str(score):
+        chif = int(chiffre)
+        draw_block(screen, a, b, NOMBRE[chif])
+        a += 30
+    draw_block(screen, 350, 40, hud)
+# Draw house life
+def draw_house_life(surf, x, y, pct):
+    if pct < 0:
+        pct = 0
+    BAR_LENGTH = 300
+    BAR_HEIGHT = 10
+    fill = (pct / 300) * BAR_LENGTH
+    outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
+    fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
 
-
-# Creating new mobs
-def newmob():
-    m = Mob()
-    all_sprites.add(m)
-    mobs.add(m)
+    pygame.draw.rect(surf, GREEN, fill_rect)
+    pygame.draw.rect(surf, WHITE, outline_rect, 2)
 
 
 class Cloud(pygame.sprite.Sprite):
@@ -103,9 +117,7 @@ class Player(pygame.sprite.Sprite):
 
         self.frame_climb = 12
         self.climb_timer = 150
-        self.speedfall1 = 1
-        self.speedfall2 = 1.5
-        self.speedfall3 = 2
+
 
         self.climb1 = pygame.time.get_ticks()
         self.climb_timer_choose = 0
@@ -113,14 +125,14 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         self.speedx = 0
         keystate = pygame.key.get_pressed() 
-        if keystate[pygame.K_LEFT] or keystate[pygame.K_a]:
+        if keystate[pygame.K_LEFT]:
             self.speedx = -5
             self.image_frame += 1
             if self.image_frame == 11:
                 self.image_frame = 0
             self.image = pygame.transform.flip(PLAYER_IMAGES[self.image_frame], True, False)
 
-        if keystate[pygame.K_RIGHT] or keystate[pygame.K_d]:
+        if keystate[pygame.K_RIGHT]:
             self.speedx = 5
             self.image_frame += 1
             if self.image_frame == 11:
@@ -139,17 +151,19 @@ class Player(pygame.sprite.Sprite):
             self.image = pygame.transform.flip(PLAYER_IMAGES[0], True, False)
 
         # climbing up
-        if (keystate[pygame.K_UP] or keystate[pygame.K_w]) and (950 <= self.rect.x <= 990) and self.rect.y > 150 :
+        if (keystate[pygame.K_UP]) and (950 <= self.rect.x <= 990) and self.rect.y > 150 :
             self.climb()
+
+        # falling down
         if not (950 <= self.rect.x <= 990) and ((0 < self.rect.y <= 247) or (252 <= self.rect.y <= HEIGHT/2 + 40)):
+
             self.fall()
 
         # climbing down
-        if (950 <= self.rect.x <= 990) and (keystate[pygame.K_DOWN] or keystate[pygame.K_s]):
+        if (950 <= self.rect.x <= 990) and (keystate[pygame.K_DOWN]):
             self.climbdown()
 
     def climb(self):
-        g.hide()
         now = pygame.time.get_ticks()
         if now - self.climb1 >= self.climb_timer:
             self.climb1 = now
@@ -160,7 +174,6 @@ class Player(pygame.sprite.Sprite):
         self.image = PLAYER_IMAGES[self.frame_climb]
 
     def climbdown(self):
-        g.hide()
         now = pygame.time.get_ticks()
         if now - self.climb1 >= self.climb_timer:
             self.climb1 = now
@@ -173,14 +186,17 @@ class Player(pygame.sprite.Sprite):
         self.image = PLAYER_IMAGES[self.frame_climb]
 
     def fall(self):
-        g.hide()
-        self.rect.y += 3
+        if 0 < self.rect.y < 252:
+            self.rect.y += ((200 + player.rect.y)**2)/20000
+        else:
+            self.rect.y += ((player.rect.y)**2)/20000
+
         self.image = PLAYER_IMAGES[14]
         if 245 <= self.rect.y <= 250:
             self.rect.y = 250
             fall.play()
             self.image = PLAYER_IMAGES[15]
-        if HEIGHT/2 + 38 <= self.rect.y <= HEIGHT/2 + 44:
+        if HEIGHT/2 + 38 <= self.rect.y <= HEIGHT/2 + 50:
             self.rect.y = HEIGHT/2 + 42
             fall.play()
             self.image = PLAYER_IMAGES[15]
@@ -271,62 +287,86 @@ class Cactus(pygame.sprite.Sprite):
             self.image = pygame.transform.scale(HILL_IMAGES[self.compteur_frame], self.grosseur)
             self.image.set_colorkey(BLACK)
 
-class Gun(pygame.sprite.Sprite):
+class Cannon(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pistol
-        self.rect = self.image.get_rect()
-        self.rect.x = player.rect.x - 30
-        self.rect.y = player.rect.y + 25
-        self.mouse_pos = pygame.mouse.get_pos()
-    
+        self.frame = 0
+        if self.frame == 0:
+            self.image = pygame.transform.scale(CANNON[self.frame], (70, 40))
+            self.rect = self.image.get_rect()
+            self.rect.x = 960
+            self.rect.y = HEIGHT/2 + 30
+        self.shoot_timer = 250
+        self.time = pygame.time.get_ticks()
+
     def update(self):
-        self.rect.y = player.rect.y + 25
         keystate = pygame.key.get_pressed()
-        if keystate[pygame.K_RIGHT] or keystate[pygame.K_d]:
-            self.rect.x = player.rect.x + 30
-            self.image = pygame.transform.flip(pistol, True, False)
-        elif keystate[pygame.K_LEFT] or keystate[pygame.K_a]:
-            self.image = pistol
-            self.rect.x = player.rect.x - 30
-            self.rect.y = player.rect.y + 25
+        if keystate[pygame.K_w]:
+            self.rect.y -= 3
+            if 175 <= self.rect.y <= 178:
+                self.rect.y = 178
+        if keystate[pygame.K_s]:
+            self.rect.y += 3
+            if (HEIGHT/2 + 49) <= self.rect.y <= (HEIGHT/2 + 52):
+                self.rect.y = HEIGHT/2 + 52
 
-        # rotation
-        if pygame.mouse.get_pressed()[0]:
-            print(self.mouse_pos)
-            if self.mouse_pos[0] <= player.rect.x:
-                self.rotate()
+        if keystate[pygame.K_SPACE]:
+            self.shoot()
 
-    def rotate(self):
-        self.x_mouse = self.rect.x - self.mouse_pos[0]
-        self.y_mouse = self.rect.y - self.mouse_pos[1]
-        self.angle_rot = 90 - math.sin(self.x_mouse/(math.sqrt(self.x_mouse**2 + self.y_mouse**2)))
-        new_image = pygame.transform.rotate(self.image, self.angle_rot)
-        old_center = self.rect.center
-        self.image = new_image
-        self.rect = self.image.get_rect()
-        self.rect.center = old_center
-    
-    def hide(self):
-        self.image = empty
+    def shoot(self):
+        now = pygame.time.get_ticks()
+        if now - self.time >= self.shoot_timer:
+            self.time = now
+            bullet = Bullet()
+            all_sprites.add(bullet)
+            bullets.add(bullet)
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
+        self.image = BULLETS[0]
+        self.rect = self.image.get_rect()
+        self.rect.x = 942
+        self.rect.y = cannon.rect.centery
+        self.speedx = 6
+
+    def update(self):
+        self.rect.x -= self.speedx
+        if self.rect.x < -20:
+            self.kill()
+
+class Coin(pygame.sprite.Sprite):
+    def __init__(self, type):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = COIN[0]
+        self.image.set_colorkey(WHITE)
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = type.rect.x
+        self.rect.y = type.rect.y
+        self.compteur = 0
+        self.frame = 0
+
+    def update(self):
+        # self.frame += 1
+        if self.frame == 10:
+            self.frame = 0
+        self.image = COIN[self.frame]
+        self.rect.y -= 1
+        self.compteur += 1
+        if self.compteur == 20:
+            self.kill()
+        self.image.set_colorkey(WHITE)
+        self.image.set_colorkey(BLACK)
+
 
 class Bee(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.revers = False
         self.image = BEE[0]
         self.rect = self.image.get_rect()
-        self.x_1 = random.randrange(-60, -20)
-        self.x_2 = random.randrange(WIDTH + 20, WIDTH + 60)
-        self.rect.x = random.choice([self.x_1, self.x_2])
-        self.rect.y = random.randrange(50, 280)
-        if -100 < self.rect.x < 0:
-            self.image = pygame.transform.flip(self.image, True, False)
-            self.revers = True
+        self.rect.x = random.randrange(-60, -20)
+        self.rect.y = random.randrange(178, 300)
         self.speedx = random.randrange(1,3)
         self.frame = 0
 
@@ -335,22 +375,21 @@ class Bee(pygame.sprite.Sprite):
 
     def update(self):
         self.rect.y = random.choice([self.rect.y + 1, self.rect.y - 1])
-        if self.revers:
-            self.rect.x += self.speedx
-        if not self.revers:
-            self.rect.x -= self.speedx
+        self.rect.x += self.speedx
         now = pygame.time.get_ticks()
         if now - self.time_now >= self.timer:
             self.time_now = now
             self.frame += 1
             if self.frame == 2:
                 self.frame = 0
-            if self.revers:
-                self.image = pygame.transform.flip(BEE[self.frame], True, False)
-            else:
-                self.image = BEE[self.frame]
-        if self.rect.x < -55 or self.rect.x > WIDTH + 65:
+            self.image = BEE[self.frame]
+        if self.rect.x > WIDTH + 65:
             self.kill()
+        
+    def die(self):
+        self.rect.y += (self.rect.y**2)/20000
+        if HEIGHT/2 + 38 <= self.rect.y <= HEIGHT/2 + 42:
+            self.rect.y = HEIGHT/2 + 42
 
 
 # ------------------------------------------------------------------------------------------------------ #
@@ -434,17 +473,53 @@ for i in range(12):
     smoke = pygame.transform.scale(smoke, (20,20))
     SMOKE.append(smoke)
 
+BULLETS = []
+for i in range(4):
+    filename = 'bullet{}.png'.format(i)
+    bullet = pygame.image.load(path.join(img_dir, filename)).convert()
+    bullet.set_colorkey(WHITE)
+    bullet.set_colorkey(BLACK)
+    bullet = pygame.transform.flip(bullet, True, False)
+    bullet = pygame.transform.scale(bullet, (20,10))
+    BULLETS.append(bullet)
+
+CANNON = []
+for i in range(3):
+    filename = 'cannon{}.png'.format(i)
+    cannon = pygame.image.load(path.join(img_dir, filename)).convert()
+    cannon.set_colorkey(WHITE)
+    cannon.set_colorkey(BLACK)
+    CANNON.append(cannon)
+
+NOMBRE = []
+for i in range(10):
+    filename = 'hud_{}.png'.format(i)
+    nombre = pygame.image.load(path.join(img_dir, filename)).convert()
+    nombre.set_colorkey(BLACK)
+    nombre.set_colorkey(WHITE)
+    NOMBRE.append(nombre)
+
+COIN = []
+for i in range(10):
+    filename = 'coin{}.png'.format(i)
+    coin = pygame.image.load(path.join(img_dir, filename)).convert()
+    coin.set_colorkey(BLACK)
+    coin.set_colorkey(WHITE)
+    coin = pygame.transform.scale(coin, (20,20))
+    COIN.append(coin)
+
 beefly1 = pygame.image.load(path.join(img_dir, 'bee0.png')).convert()
 beefly2 = pygame.image.load(path.join(img_dir, 'bee1.png')).convert()
 beefly1 = pygame.transform.scale(beefly1, (25, 20))
 beefly2 = pygame.transform.scale(beefly2, (25, 20))
 beefly1.set_colorkey(BLACK)
 beefly2.set_colorkey(BLACK)
-BEE = [beefly1, beefly2]
+beefly3 = pygame.image.load(path.join(img_dir, 'bee2.png')).convert()
+beefly3 = pygame.transform.scale(beefly3, (25, 20))
+beefly3.set_colorkey(BLACK)
 
-pistol = pygame.image.load(path.join(img_dir, 'weapon00.png')).convert()
-pistol = pygame.transform.scale(pistol, (50,38))
-pistol.set_colorkey(WHITE)
+BEE = [pygame.transform.flip(beefly1, True, False), pygame.transform.flip(beefly2, True, False), pygame.transform.flip(beefly3, True, False)]
+
 
 doormid = pygame.image.load(path.join(img_dir, 'door_closed.png')).convert()
 doormid.set_colorkey(WHITE)
@@ -458,6 +533,9 @@ fen2 = pygame.image.load(path.join(img_dir, 'fenceBroken.png')).convert()
 fen2.set_colorkey(WHITE)
 fences = [fen1, fen2]
 
+hud = pygame.image.load(path.join(img_dir, 'hud_10.png')).convert()
+hud.set_colorkey(WHITE)
+hud.set_colorkey(BLACK)
 box = pygame.image.load(path.join(img_dir, 'box.png')).convert()
 bush = pygame.image.load(path.join(img_dir, 'bush.png')).convert()
 bush.set_colorkey(WHITE)
@@ -487,7 +565,7 @@ window_orig.set_colorkey(WHITE)
 windows = [windowmid, windowtop, window_orig]
 
 fall = pygame.mixer.Sound(path.join(snd_dir, 'fall.wav'))
-pygame.mixer.music.load(path.join(snd_dir, 'Battle Theme 1.mp3'))
+pygame.mixer.music.load(path.join(snd_dir, 'Battle Theme1.wav'))
 pygame.mixer.music.set_volume(0.2)
 pygame.mixer.music.play(loops=-1) #loops everytime it reaches the end
 
@@ -496,39 +574,35 @@ pygame.mixer.music.play(loops=-1) #loops everytime it reaches the end
 # Creating sprites
 all_sprites = pygame.sprite.Group()
 mobs = pygame.sprite.Group()
+bees = pygame.sprite.Group()
 bullets = pygame.sprite.Group()
-
 
 t1 = Torch(compteur=0)
 t2 = Torch(compteur=1)
 all_sprites.add(t1)
 all_sprites.add(t2)
-
-
 for i in range(3):
     s = Smoke()
     all_sprites.add(s)
-
 c1 = Cactus(c=0)
 c2 = Cactus(c=1)
 all_sprites.add(c1)
 all_sprites.add(c2)
-
-for i in range(5):
-    pass
-    # m = Mob()
-    # all_sprites.add(m)
-
 for i in range(10):
     c = Cloud()
     all_sprites.add(c)
 
+for i in range(5):
+    m = Mob()
+    all_sprites.add(m)
+    mobs.add(m)
 
+cannon = Cannon()
+all_sprites.add(cannon)
 player = Player()
 all_sprites.add(player)
 
-g = Gun()
-all_sprites.add(g)
+
 
 # ------------------------------------------------------------------------------------------------------ #
 # Decorations
@@ -558,7 +632,7 @@ def house():
     draw_block(screen, 1250, HEIGHT / 2 + 82, HOUSE_BLOCKS[4])
 
     # sign
-    draw_block(screen, 1045, HEIGHT/2, pygame.transform.scale(sign, (40, 45)))
+    draw_block(screen, 1355, HEIGHT/2 + 10, pygame.transform.scale(pygame.transform.flip(sign, True, False), (40, 45)))
     # red flag
     for i in range(6):
         draw_block(screen, 1085 + i * 40, HEIGHT/2 - 30, pygame.transform.scale(redflag, (40, 30)))
@@ -635,11 +709,16 @@ def deco():
 # ------------------------------------------------------------------------------------------------------ #
 
 # Game loop
-time_out = pygame.time.get_ticks()
+score = 0
+house_life = 300
+time_out_shoot = pygame.time.get_ticks()
+time_out_bee = pygame.time.get_ticks()
 check_mouse = False
 running = True
 game_over = True
+
 while running:
+    keystate = pygame.key.get_pressed() 
     # Keep loop runnning at the right speed
     clock.tick(FPS)
     # Process input (Events)
@@ -650,14 +729,28 @@ while running:
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_c:
                 print(pygame.mouse.get_pos())
-    time_in = pygame.time.get_ticks()
-    spawn_time = 2000
-    chiffre = random.randrange(0,150)
-    if time_in - time_out >= spawn_time:
+
+    time_in_bee = pygame.time.get_ticks()
+    spawn_time_bee = 2000
+    chiffre = random.randrange(0,25)
+    if time_in_bee - time_out_bee >= spawn_time_bee:
         if chiffre == 2:
             b = Bee()
             all_sprites.add(b)
-            time_out = time_in
+            bees.add(b)
+            time_out_bee = time_in_bee
+    
+    hits_bullet_bees = pygame.sprite.groupcollide(bullets, bees, True, False)
+    for hits in hits_bullet_bees:
+        score += random.randrange(12, 15)
+        coin = Coin(b)
+        all_sprites.add(coin)
+
+    hits_bullets_mobs = pygame.sprite.groupcollide(bullets, mobs, True, True)
+    for hits in hits_bullets_mobs:
+        score += random.randrange(10, 12)
+        coin = Coin(m)
+        all_sprites.add(coin)
 
     screen.fill(SKY)
     house()
@@ -665,9 +758,9 @@ while running:
     all_sprites.update()
     draw_block(screen, 1150, 100, pygame.transform.scale(chimney, (40, 33)))
     # Draw / render
-    
+    draw_house_life(screen, 1050, 50, house_life)
+    draw_score(score)
     all_sprites.draw(screen)
-    
 
 
     # After drawing everything, flip the display
