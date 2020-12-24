@@ -62,6 +62,37 @@ def draw_house_life(surf, x, y, pct):
 
     pygame.draw.rect(surf, GREEN, fill_rect)
     pygame.draw.rect(surf, WHITE, outline_rect, 2)
+# Draw enemy life
+def draw_enemy_life(surf, type, mob_type, pct):
+    if pct < 0:
+        pct = 0
+    if mob_type == 'bee':
+        BAR_LENGTH = 25
+        BAR_HEIGHT = 5
+        fill = pct
+        outline_rect = pygame.Rect(type.rect.x - 2, type.rect.y - 10, BAR_LENGTH, BAR_HEIGHT)
+        fill_rect = pygame.Rect(type.rect.x - 2, type.rect.y - 10, fill, BAR_HEIGHT)
+    if mob_type == 'ghost':
+        BAR_LENGTH = 30
+        BAR_HEIGHT = 5
+        fill = pct
+        outline_rect = pygame.Rect(type.rect.x + 2, type.rect.y - 10, BAR_LENGTH, BAR_HEIGHT)
+        fill_rect = pygame.Rect(type.rect.x + 2, type.rect.y - 10, fill, BAR_HEIGHT)
+    if mob_type == 'mob':
+        BAR_LENGTH = 30
+        BAR_HEIGHT = 5
+        fill = pct
+        if type.grosseur == (35,50):
+            outline_rect = pygame.Rect(type.rect.x + 3, type.rect.y - 10, BAR_LENGTH, BAR_HEIGHT)
+            fill_rect = pygame.Rect(type.rect.x + 3, type.rect.y - 10, fill, BAR_HEIGHT)
+        if type.grosseur == (55,70):
+            outline_rect = pygame.Rect(type.rect.x + 13, type.rect.y - 10, BAR_LENGTH, BAR_HEIGHT)
+            fill_rect = pygame.Rect(type.rect.x + 13, type.rect.y - 10, fill, BAR_HEIGHT)
+        if type.grosseur == (65,80):
+            outline_rect = pygame.Rect(type.rect.x + 17, type.rect.y - 10, BAR_LENGTH, BAR_HEIGHT)
+            fill_rect = pygame.Rect(type.rect.x + 17, type.rect.y - 10, fill, BAR_HEIGHT)
+    pygame.draw.rect(surf, RED, fill_rect)
+    pygame.draw.rect(surf, BLACK, outline_rect, 2)
 
 
 class Cloud(pygame.sprite.Sprite):
@@ -205,6 +236,34 @@ class Player(pygame.sprite.Sprite):
             fall.play()
             self.image = PLAYER_IMAGES[15]
 
+class Ghost(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.y_chooser = random.choice((1,2,3))
+        self.image = GHOST[0]
+        self.rect = self.image.get_rect()
+        if self.y_chooser == 1 or self.y_chooser == 2:
+            self.rect.y = 440
+        else:
+            self.rect.y = random.randrange(100, 440)
+        self.rect.x = random.randrange(-50,-20)
+        self.speedx = random.randrange(2,4)
+        self.life = 30
+        self.frame = 0
+        self.compteur = 0
+
+    def update(self):
+        self.rect.x += self.speedx
+        self.compteur += 1
+        if self.compteur == 40:
+            self.frame += 1
+            if self.frame == 2:
+                self.frame = 0
+            self.image = GHOST[self.frame]
+            self.compteur = 0
+        self.image.set_colorkey(BLACK)
+        draw_enemy_life(screen, self, 'ghost', self.life)
+
 class Mob(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -217,12 +276,12 @@ class Mob(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(ENEMY_IMAGES[self.image_frame], self.grosseur)
         self.rect = self.image.get_rect()
         self.speedx = random.randrange(2, 4)
-        self.rect.x = 900
+        self.rect.x = random.randrange(-60, -20)
         self.rect.y = HEIGHT / 2 - self.rect.centery * 2 + 107
         # Walking variables
         self.time_walk = pygame.time.get_ticks()
         self.time_timer = 38
-
+        self.life = 30
     def update(self):
         # Gets mobs to walk slower
         walk = True
@@ -234,6 +293,7 @@ class Mob(pygame.sprite.Sprite):
             if self.image_frame == 10:
                 self.image_frame = 1
             self.image = pygame.transform.scale(ENEMY_IMAGES[self.image_frame], self.grosseur)
+        draw_enemy_life(screen, self, 'mob', self.life)
 
 class Smoke(pygame.sprite.Sprite):
     def __init__(self):
@@ -409,6 +469,7 @@ class Bee(pygame.sprite.Sprite):
 
         self.timer = 100
         self.time_now = pygame.time.get_ticks()
+        self.life = 25
 
     def update(self):
         self.rect.y = random.choice([self.rect.y + 1, self.rect.y - 1])
@@ -422,7 +483,8 @@ class Bee(pygame.sprite.Sprite):
             self.image = BEE[self.frame]
         if self.rect.x > WIDTH + 65:
             self.kill()
-        
+        draw_enemy_life(screen, self, 'bee', self.life)
+
     def die(self):
         self.rect.y += (self.rect.y**2)/20000
         if HEIGHT/2 + 38 <= self.rect.y <= HEIGHT/2 + 42:
@@ -431,53 +493,34 @@ class Bee(pygame.sprite.Sprite):
 class Gear(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image_orig = gear
-        self.image_orig.set_colorkey(WHITE)
-        self.image = self.image_orig.copy()
+        self.image = gear
+        self.image.set_colorkey(WHITE)
         self.rect = self.image.get_rect()
         self.rect.x = 934
         self.rect.y = HEIGHT/2 + 60
-        self.last_update = pygame.time.get_ticks()
-        self.rot = 0
-        self.rotspeed = 6
 
     def update(self):
-        keystate = pygame.key.get_pressed() 
         self.rect.x = cannon.rect.x + 40
         self.rect.y = cannon.rect.y + 40
-        if keystate[pygame.K_w] or keystate[pygame.K_s]:
-            self.rotate_up()
-
-    def rotate_up(self):
-        now = pygame.time.get_ticks()
-        if now - self.last_update > 50:
-            self.last_update = now
-            self.rot = (self.rot + self.rotspeed) % 360
-            new_image = pygame.transform.rotate(self.image_orig, self.rot)
-            old_center = self.rect.center
-            self.image = new_image
-            self.rect = self.image.get_rect()
-            self.rect.center = old_center
 
 class Explosion(pygame.sprite.Sprite):
     def __init__(self, type):
         pygame.sprite.Sprite.__init__(self)
-        self.image = EXPLOSION[0]
+        self.image = pygame.transform.scale(EXPLOSION[0], (40,40))
         self.rect = self.image.get_rect()
-        self.rect.x = type.rect.x
-        self.rect.y = type.rect.y
+        self.rect.x = type.rect.centerx
+        self.rect.y = type.rect.centery
         self.frame = 0
         self.time = pygame.time.get_ticks()
 
     def update(self):
         now = pygame.time.get_ticks()
-        if now - self.time > 50:
+        if now - self.time > 100:
             self.time = now
             self.frame += 1
             if self.frame == 11:
                 self.kill()
             self.image = EXPLOSION[self.frame]
-
 
 
 # ------------------------------------------------------------------------------------------------------ #
@@ -575,7 +618,8 @@ EXPLOSION = []
 for i in range(12):
     filename = 'explosion{}.png'.format(i)
     explosion = pygame.image.load(path.join(img_dir, filename)).convert()
-    explosion = pygame.transform.scale(bullet, (30,30))
+    explosion = pygame.transform.scale(explosion, (30,30))
+    explosion.set_colorkey(BLACK)
     EXPLOSION.append(explosion)
 
 CANNON = []
@@ -611,6 +655,14 @@ for i in range(8):
     coin = pygame.transform.scale(coin, (20,20))
     COIN.append(coin)
 
+GHOST = []
+for i in range(2):
+    filename = 'ghost{}.png'.format(i)
+    ghost = pygame.image.load(path.join(img_dir, filename)).convert()
+    ghost = pygame.transform.scale(ghost, (35,47))
+    ghost = pygame.transform.flip(ghost, True, False)
+    GHOST.append(ghost)
+
 
 beefly1 = pygame.image.load(path.join(img_dir, 'bee0.png')).convert()
 beefly2 = pygame.image.load(path.join(img_dir, 'bee1.png')).convert()
@@ -637,7 +689,7 @@ fen2.set_colorkey(WHITE)
 fences = [fen1, fen2]
 
 gear = pygame.image.load(path.join(img_dir, 'gear.png')).convert()
-gear = pygame.transform.scale(gear, (20,20))
+gear = pygame.transform.scale(gear, (30,30))
 chain = pygame.image.load(path.join(img_dir, 'chain.png')).convert()
 chain = pygame.transform.scale(chain, (10, 40))
 chain.set_colorkey(WHITE)
@@ -690,6 +742,7 @@ bees = pygame.sprite.Group()
 bullets = pygame.sprite.Group()
 coins = pygame.sprite.Group()
 joueur = pygame.sprite.Group()
+ghosts = pygame.sprite.Group()
 
 t1 = Torch(compteur=0)
 t2 = Torch(compteur=1)
@@ -705,7 +758,6 @@ all_sprites.add(c2)
 for i in range(10):
     c = Cloud()
     all_sprites.add(c)
-
 
 
 gear = Gear()
@@ -825,10 +877,12 @@ def deco():
 coins_total = 0
 score = 0
 house_life = 300
+gun_strength = 30
 
 time_out_shoot = pygame.time.get_ticks()
 time_out_bee = pygame.time.get_ticks()
 time_out_mob = pygame.time.get_ticks()
+time_out_ghost = pygame.time.get_ticks()
 
 check_mouse = False
 running = True
@@ -844,7 +898,7 @@ while running:
         if event.type == pygame.QUIT:
             running = False 
         if event.type == pygame.KEYUP:
-            if event.key == pygame.K_c:
+            if event.key == pygame.K_p:
                 print(pygame.mouse.get_pos())
 
     time_in_bee = pygame.time.get_ticks()
@@ -861,7 +915,7 @@ while running:
     time_in_mob = pygame.time.get_ticks()
     spawn_time_mob = 2000
     luck_mob = 200
-    chiffre_mob = random.randrange(0, luck_bee)
+    chiffre_mob = random.randrange(0, luck_mob)
     if time_in_mob - time_out_mob >= spawn_time_mob:
         if chiffre_mob == 2:
             m = Mob()
@@ -869,39 +923,73 @@ while running:
             mobs.add(m)
             time_out_mob = time_in_mob
 
+    time_in_ghost = pygame.time.get_ticks()
+    spawn_time_ghost = 2000
+    luck_ghost = 200
+    chiffre_ghost = random.randrange(0, luck_ghost)
+    if time_in_ghost - time_out_ghost >= spawn_time_ghost:
+        if chiffre_ghost == 2:
+            g = Ghost()
+            all_sprites.add(g)
+            ghosts.add(g)
+            time_out_ghost = time_in_ghost
+
     for bee in bees:
-        if 1020 <= bee.rect.x <= 1025:
+        if 1035 <= bee.rect.x <= 1040:
             bee.kill()
             house_life -= 10
             expl = Explosion(bee)
             all_sprites.add(expl)
         hits_bullet_bees = pygame.sprite.spritecollide(bee, bullets, True)
         for hits in hits_bullet_bees:
-            score += random.randrange(12, 15)
-            coin_give = random.randrange(0,4)
-            if coin_give == 0:
-                coin = Coin(bee)
-                coins.add(coin)
-                all_sprites.add(coin)
-            all_sprites.remove(bee)
-            bees.remove(bee)
+            bee.life -= gun_strength
+            if bee.life <= 0:
+                score += random.randrange(12, 15)
+                coin_give = random.randrange(0,4)
+                if coin_give == 0:
+                    coin = Coin(bee)
+                    coins.add(coin)
+                    all_sprites.add(coin)
+                all_sprites.remove(bee)
+                bees.remove(bee)
         
     for mob in mobs:
-        if 1020 <= mob.rect.x <= 1025:
+        if 1035 <= mob.rect.x <= 1040:
             mob.kill()
             house_life -= 10
             expl = Explosion(mob)
             all_sprites.add(expl)
         hits_bullets_mobs = pygame.sprite.spritecollide(mob, bullets, True)
         for hits in hits_bullets_mobs:
-            score += random.randrange(10, 12)
-            coin_give = random.randrange(0,4)
-            if coin_give == 0:
-                coin = Coin(mob)
-                coins.add(coin)
-                all_sprites.add(coin)
-            all_sprites.remove(mob)
-            mobs.remove(mob)
+            mob.life -= gun_strength
+            if mob.life <= 0:
+                score += random.randrange(10, 12)
+                coin_give = random.randrange(0,4)
+                if coin_give == 0:
+                    coin = Coin(mob)
+                    coins.add(coin)
+                    all_sprites.add(coin)
+                all_sprites.remove(mob)
+                mobs.remove(mob)
+
+    for ghost in ghosts:
+        if 1035 <= ghost.rect.x <= 1040:
+            ghost.kill()
+            house_life -= 10
+            expl = Explosion(ghost)
+            all_sprites.add(expl)
+        hits_bullets_ghost = pygame.sprite.spritecollide(ghost, bullets, True)
+        for hits in hits_bullets_ghost:
+            ghost.life -= gun_strength
+            if ghost.life <= 0:
+                score += random.randrange(10, 12)
+                coin_give = random.randrange(0,4)
+                if coin_give == 0:
+                    coin = Coin(ghost)
+                    coins.add(coin)
+                    all_sprites.add(coin)
+                all_sprites.remove(ghost)
+                ghosts.remove(ghost)
 
     for c in coins:
         hits_player_coin = pygame.sprite.spritecollide(c, joueur, False)
@@ -910,7 +998,6 @@ while running:
             c.kill()
             coins_total += 1
 
-    print()
     screen.fill(SKY)
     house()
     deco()
