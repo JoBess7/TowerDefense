@@ -30,6 +30,13 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption('Tower Defense')
 clock = pygame.time.Clock()
 
+font_name = pygame.font.match_font('arial')
+def draw_text(surf, text, size, x, y):
+    font = pygame.font.SysFont(font_name, size)
+    text_surface = font.render(text, True, RED) # True makes it nicer to read
+    text_rect = text_surface.get_rect()
+    text_rect.midtop = (x, y) 
+    surf.blit(text_surface, text_rect)
 # Used for drawing on the screen
 def draw_block(surface, x, y, img):
     img.set_colorkey(BLACK)
@@ -93,6 +100,12 @@ def draw_enemy_life(surf, type, mob_type, pct):
             fill_rect = pygame.Rect(type.rect.x + 17, type.rect.y - 10, fill, BAR_HEIGHT)
     pygame.draw.rect(surf, RED, fill_rect)
     pygame.draw.rect(surf, BLACK, outline_rect, 2)
+# Draw wave
+def write_wave(compteur):
+    draw_text(screen, f'Wave {compteur_waves} starting soon...', 64, WIDTH/2, HEIGHT/4)
+    draw_text(screen, 'Good luck!', 22, 
+                WIDTH/2, HEIGHT/2)
+    pygame.display.flip()
 
 
 class Cloud(pygame.sprite.Sprite):
@@ -884,10 +897,14 @@ time_out_bee = pygame.time.get_ticks()
 time_out_mob = pygame.time.get_ticks()
 time_out_ghost = pygame.time.get_ticks()
 
+wave_written = False
 check_mouse = False
 running = True
 game_over = True
-
+compteur_waves = 1
+compteur_mobs = 2
+compteur_mobs_orig = compteur_mobs
+spawn = True
 while running:
     keystate = pygame.key.get_pressed() 
     # Keep loop runnning at the right speed
@@ -900,39 +917,42 @@ while running:
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_p:
                 print(pygame.mouse.get_pos())
+    if spawn:
+        time_in_bee = pygame.time.get_ticks()
+        spawn_time_bee = 2000
+        luck_bee = 200
+        chiffre_bee = random.randrange(0, luck_bee)
+        if time_in_bee - time_out_bee >= spawn_time_bee:
+            if chiffre_bee == 2:
+                if compteur_mobs != 0:
+                    b = Bee()
+                    all_sprites.add(b)
+                    bees.add(b)
+                    time_out_bee = time_in_bee
 
-    time_in_bee = pygame.time.get_ticks()
-    spawn_time_bee = 2000
-    luck_bee = 200
-    chiffre_bee = random.randrange(0, luck_bee)
-    if time_in_bee - time_out_bee >= spawn_time_bee:
-        if chiffre_bee == 2:
-            b = Bee()
-            all_sprites.add(b)
-            bees.add(b)
-            time_out_bee = time_in_bee
-    
-    time_in_mob = pygame.time.get_ticks()
-    spawn_time_mob = 2000
-    luck_mob = 200
-    chiffre_mob = random.randrange(0, luck_mob)
-    if time_in_mob - time_out_mob >= spawn_time_mob:
-        if chiffre_mob == 2:
-            m = Mob()
-            all_sprites.add(m)
-            mobs.add(m)
-            time_out_mob = time_in_mob
+        time_in_mob = pygame.time.get_ticks()
+        spawn_time_mob = 2000
+        luck_mob = 200
+        chiffre_mob = random.randrange(0, luck_mob)
+        if time_in_mob - time_out_mob >= spawn_time_mob:
+            if chiffre_mob == 2:
+                if compteur_mobs != 0:
+                    m = Mob()
+                    all_sprites.add(m)
+                    mobs.add(m)
+                    time_out_mob = time_in_mob
 
-    time_in_ghost = pygame.time.get_ticks()
-    spawn_time_ghost = 2000
-    luck_ghost = 200
-    chiffre_ghost = random.randrange(0, luck_ghost)
-    if time_in_ghost - time_out_ghost >= spawn_time_ghost:
-        if chiffre_ghost == 2:
-            g = Ghost()
-            all_sprites.add(g)
-            ghosts.add(g)
-            time_out_ghost = time_in_ghost
+        time_in_ghost = pygame.time.get_ticks()
+        spawn_time_ghost = 2000
+        luck_ghost = 200
+        chiffre_ghost = random.randrange(0, luck_ghost)
+        if time_in_ghost - time_out_ghost >= spawn_time_ghost:
+            if chiffre_ghost == 2:
+                if compteur_mobs != 0:
+                    g = Ghost()
+                    all_sprites.add(g)
+                    ghosts.add(g)
+                    time_out_ghost = time_in_ghost
 
     for bee in bees:
         if 1035 <= bee.rect.x <= 1040:
@@ -952,7 +972,8 @@ while running:
                     all_sprites.add(coin)
                 all_sprites.remove(bee)
                 bees.remove(bee)
-        
+                compteur_mobs -= 1
+
     for mob in mobs:
         if 1035 <= mob.rect.x <= 1040:
             mob.kill()
@@ -971,6 +992,7 @@ while running:
                     all_sprites.add(coin)
                 all_sprites.remove(mob)
                 mobs.remove(mob)
+                compteur_mobs -= 1
 
     for ghost in ghosts:
         if 1035 <= ghost.rect.x <= 1040:
@@ -990,6 +1012,7 @@ while running:
                     all_sprites.add(coin)
                 all_sprites.remove(ghost)
                 ghosts.remove(ghost)
+                compteur_mobs -= 1
 
     for c in coins:
         hits_player_coin = pygame.sprite.spritecollide(c, joueur, False)
@@ -997,6 +1020,27 @@ while running:
             coin_get.play()
             c.kill()
             coins_total += 1
+
+    compteur_wait = 0
+    if compteur_mobs == 0:
+        spawn = False
+        wave_written = True
+        compteur_waves += 1
+        compteur_mobs_orig += random.randrange(1,3)
+        all_sprites.remove(bee for bee in bees)
+        all_sprites.remove(ghost for ghost in ghosts)
+        all_sprites.remove(mob for mob in mobs)
+        bees.empty()
+        mobs.empty()
+        ghosts.empty()
+        while wave_written is True:
+            compteur_wait += 1
+            write_wave(compteur_waves)
+            if compteur_wait == 300:
+                wave_written = False
+                spawn = True
+                compteur_wait = 0
+                compteur_mobs = compteur_mobs_orig
 
     screen.fill(SKY)
     house()
